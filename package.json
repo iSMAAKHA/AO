@@ -1,0 +1,22 @@
+{
+  "name": "ao-builder",
+  "version": "1.0.0",
+  "description": "Générateur de dossier de réponse aux appels d'offres (marchés publics Maroc)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.10",
+    "docx": "^9.8.1",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "jszip": "^3.10.2",
+    "multer": "^2.4.0",
+    "pdfjs-dist": "^6.4.299",
+    "tesseract.js": "^7.0.0"
+  }
+}

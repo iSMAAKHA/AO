@@ -1,0 +1,6 @@
+node_modules
+data
+ao-builder
+out
+*.log
+*.bat

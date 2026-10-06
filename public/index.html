@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dossier AO — générateur de réponse</title>
+<style>
+  :root{--bg:#f5f7fa;--card:#fff;--ink:#1f2937;--muted:#6b7280;--line:#d9dee5;--accent:#1f4e79;--accent2:#2b6cb0;--warn:#b45309;--warnbg:#fff7e6;--bad:#b91c1c;--badbg:#fdecea;--ok:#166534;--okbg:#e8f5e9}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--accent);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  nav button{background:transparent;border:0;color:#cfe0f1;padding:8px 14px;border-radius:6px;font:inherit;cursor:pointer}
+  nav button.on{background:#fff;color:var(--accent);font-weight:600}
+  main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+  section{display:none}section.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:16px}
+  .card .sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 16px}
+  .grid .wide{grid-column:1/-1}
+  label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
+  input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font:inherit;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:2px solid #9ec5ee;border-color:var(--accent2)}
+  input.miss{background:var(--warnbg);border-color:#f0c36d}
+  textarea{resize:vertical}
+  .chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin:2px 0}
+  .chk input{width:auto}
+  .btn{display:inline-block;background:var(--accent);color:#fff;border:0;border-radius:7px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+  .btn:hover{background:var(--accent2)}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  .ghost:hover{background:#eef5fc}
+  .small{padding:4px 10px;font-size:13px;font-weight:500}
+  .drop{border:2px dashed #9bb4cf;border-radius:10px;padding:26px;text-align:center;background:#f0f6fc;cursor:pointer}
+  .drop.over{background:#dcebfa}
+  .drop b{display:block;font-size:16px;margin-bottom:4px}
+  .files{margin:10px 0 0;padding:0;list-style:none;font-size:14px}
+  .files li{padding:3px 0}
+  .bar{height:8px;background:#e3e8ee;border-radius:5px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--accent2);width:0;transition:width .3s}
+  .alert{padding:8px 12px;border-radius:7px;margin:6px 0;font-size:13.5px}
+  .alert.warn{background:var(--warnbg);color:#7a4a05;border:1px solid #f0c36d}
+  .alert.info{background:#eef5fc;color:#27496d;border:1px solid #c8dcf0}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:#eaf0f6;font-weight:600}
+  td input{padding:4px 6px}
+  .num{text-align:right;white-space:nowrap}
+  .tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:10px;background:#e8eef5;color:var(--accent);white-space:nowrap;font-weight:500}
+  .tag.gen{background:var(--okbg);color:var(--ok)}
+  .tag.man{background:var(--warnbg);color:var(--warn)}
+  tr.crit td{background:var(--badbg)}
+  tr.soft td{color:var(--muted)}
+  details{border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin:6px 0;background:#fff}
+  details summary{cursor:pointer;font-weight:600}
+  .piece{border-bottom:1px solid var(--line);padding:8px 0;display:flex;gap:10px}
+  .piece:last-child{border:0}
+  .piece .t{font-weight:600}
+  .piece .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .piece input{width:auto;margin-top:4px}
+  .stat{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+  .stat div{background:#f0f6fc;border:1px solid #c8dcf0;border-radius:8px;padding:8px 12px;font-size:13px}
+  .stat b{display:block;font-size:16px}
+  .res a:not(.btn){display:block;padding:6px 0;color:var(--accent2);text-decoration:none;border-bottom:1px solid var(--line)}
+  .res a:not(.btn):hover{text-decoration:underline}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:13px}
+  .hint-ok{color:var(--ok)} .hint-bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>📁 Dossier AO — générateur de réponse aux appels d'offres</h1>
+  <nav id="nav">
+    <button data-s="s1" class="on">1. Documents</button>
+    <button data-s="s2">2. Appel d'offres</button>
+    <button data-s="s3">3. Entreprise</button>
+    <button data-s="s4">4. Générer</button>
+  </nav>
+</header>
+<main>
+
+<section id="s1" class="on">
+  <div class="card">
+    <h2>Déposez le RC et le CPS (PDF)</h2>
+    <p class="sub">Ajoutez aussi l'Avis d'appel d'offres si vous l'avez : il contient la date d'ouverture, la date limite de la documentation technique et l'estimation. Sans l'Avis, vous saisirez ces dates à l'étape suivante.</p>
+    <div class="drop" id="drop"><b>Glissez vos PDF ici ou cliquez pour choisir</b><span class="muted">RC + CPS (un PDF combiné ou deux fichiers) + Avis (facultatif)</span></div>
+    <input type="file" id="file" accept=".pdf,application/pdf" multiple hidden>
+    <ul class="files" id="files"></ul>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="go" disabled>Analyser les documents</button>
+      <label class="chk" id="aiBox" style="display:none"><input type="checkbox" id="ai"> Compléter avec l'IA (clé API détectée)</label>
+      <button class="btn ghost" id="manual">Saisir l'appel d'offres à la main</button>
+    </div>
+    <div class="bar" id="bar" style="display:none"><i></i></div>
+    <p class="muted" id="msg"></p>
+    <div id="report"></div>
+  </div>
+</section>
+
+<section id="s2">
+  <div id="alertes"></div>
+  <div class="card">
+    <h2>Identification</h2>
+    <p class="sub">Champs en jaune = non détectés, à vérifier sur l'Avis publié.</p>
+    <div class="grid">
+      <div><label>N° de l'appel d'offres</label><input data-p="numero" placeholder="15/2026"></div>
+      <div class="wide"><label>Objet du marché</label><input data-p="objet"></div>
+      <div><label>Maître d'ouvrage</label><input data-p="maitreOuvrage.nom"></div>
+      <div><label>Sigle</label><input data-p="maitreOuvrage.sigle" placeholder="ONP"></div>
+      <div><label>Représenté par</label><input data-p="maitreOuvrage.representant"></div>
+      <div><label>Adresse</label><input data-p="maitreOuvrage.adresse"></div>
+      <div><label>Ville</label><input data-p="maitreOuvrage.ville"></div>
+      <div><label>Mode de passation</label><input data-p="modePassation"></div>
+      <div><label>Lots</label><input data-p="lots"></div>
+      <div><label>Portail</label><input data-p="portail"></div>
+    </div>
+    <div style="margin-top:8px">
+      <label class="chk"><input type="checkbox" data-p="reservePME"> Marché réservé à la TPE/PME, coopératives et auto-entrepreneurs</label>
+      <label class="chk"><input type="checkbox" data-p="soumissionElectronique"> Soumission électronique possible</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Dates</h2>
+    <div class="grid">
+      <div><label>Séance d'ouverture des plis — date</label><input type="date" data-p="dateOuverture"></div>
+      <div><label>Heure</label><input type="time" data-p="heureOuverture"></div>
+      <div class="wide"><label>Lieu d'ouverture</label><input data-p="lieuOuverture"></div>
+      <div class="wide"><label class="chk"><input type="checkbox" data-p="docTechSeparee"> Documentation technique à déposer en pli séparé avant l'ouverture</label></div>
+      <div><label>Date limite documentation technique</label><input type="date" data-p="dateLimiteDocTech"></div>
+      <div><label>Heure</label><input type="time" data-p="heureLimiteDocTech"></div>
+      <div class="wide"><label>Lieu de dépôt (service, adresse)</label><input data-p="lieuDocTech"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Montants et délais</h2>
+    <div class="grid">
+      <div><label>Caution provisoire (DH)</label><input type="number" step="any" data-p="cautionProvisoire"></div>
+      <div><label>Caution définitive (%)</label><input type="number" step="any" data-p="cautionDefinitifPct"></div>
+      <div><label>Retenue de garantie (%)</label><input type="number" step="any" data-p="retenueGarantiePct"></div>
+      <div><label>Estimation du maître d'ouvrage (DH)</label><input type="number" step="any" data-p="estimation"></div>
+      <div><label>Estimation : HT ou TTC</label><select data-p="estimationType"><option>TTC</option><option>HT</option></select></div>
+      <div><label>TVA (%)</label><input type="number" step="any" data-p="tauxTVA"></div>
+      <div><label>Validité des offres (jours)</label><input type="number" data-p="validiteOffresJours"></div>
+      <div><label>Délai d'exécution</label><input data-p="delaiExecution"></div>
+      <div><label>Délai de garantie</label><input data-p="delaiGarantie"></div>
+      <div><label>Pénalités de retard</label><input data-p="penalites"></div>
+    </div>
+    <div class="stat" id="limites"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pièces exigées</h2>
+    <div class="grid">
+      <label class="chk"><input type="checkbox" data-p="exigences.documentationTechnique"> Documentation technique (prospectus, notices)</label>
+      <label class="chk"><input type="checkbox" data-p="exigences.tableauConformite"> Tableau de conformité</label>
+      <label class="chk"><input type="checkbox" data-p="exigences.attestationConstructeur"> Attestation du constructeur</label>
+      <label class="chk"><input type="checkbox" data-p="exigences.echantillons"> Échantillons</label>
+      <label class="chk"><input type="checkbox" data-p="exigences.visiteLieux"> Visite des lieux</label>
+      <label class="chk"><input type="checkbox" data-p="exigences.groupementPossible"> Groupement autorisé</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bordereau des prix et spécifications</h2>
+    <p class="sub">Désignations et quantités du CPS. Saisissez vos prix unitaires HT (facultatif : ils alimentent l'acte d'engagement et le bordereau). Les spécifications alimentent le tableau de conformité (une par ligne).</p>
+    <table id="items"><thead><tr><th>N°</th><th>Désignation</th><th>Unité</th><th>Qté</th><th>PU HT (DH)</th><th class="num">Total HT</th><th>Spécifications</th><th></th></tr></thead><tbody></tbody></table>
+    <div class="row" style="margin-top:10px"><button class="btn ghost small" id="addItem">+ Ajouter une ligne</button><span class="muted" id="tot"></span></div>
+  </div>
+
+  <div class="card">
+    <h2>Pièces du dossier (aperçu)</h2>
+    <p class="sub">Décochez une pièce qui ne s'applique pas ; ajoutez celles que le RC demande en plus.</p>
+    <div id="pieces"></div>
+    <div class="row" style="margin-top:10px">
+      <input id="xTitre" placeholder="Pièce supplémentaire (ex. Certificat ISO 9001)" style="flex:2;min-width:220px">
+      <select id="xDossier" style="flex:1;min-width:150px"><option value="administratif">Dossier administratif</option><option value="technique">Dossier technique</option><option value="financier">Offre financière</option></select>
+      <button class="btn ghost small" id="addExtra">Ajouter</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Calendrier</h2>
+    <div id="cal"></div>
+  </div>
+</section>
+
+<section id="s3">
+  <div class="card">
+    <h2>Votre entreprise</h2>
+    <p class="sub">Saisie une seule fois : ces informations remplissent automatiquement tous les modèles (enregistrées localement sur cet ordinateur).</p>
+    <div class="grid" id="coGrid"></div>
+  </div>
+  <div class="card">
+    <h2>Moyens humains</h2><p class="sub">Repris dans la note « moyens humains et techniques ».</p>
+    <table id="hum"><thead><tr><th>Nom</th><th>Fonction</th><th>Formation</th><th>Expérience</th><th></th></tr></thead><tbody></tbody></table>
+    <button class="btn ghost small" id="addHum" style="margin-top:8px">+ Ajouter</button>
+  </div>
+  <div class="card">
+    <h2>Moyens techniques</h2><p class="sub">Un moyen par ligne.</p>
+    <textarea id="tech" rows="5"></textarea>
+  </div>
+  <div class="card">
+    <h2>Références</h2>
+    <table id="refs"><thead><tr><th>Client</th><th>Objet</th><th>Année</th><th>Montant (DH)</th><th>Qualité</th><th></th></tr></thead><tbody></tbody></table>
+    <button class="btn ghost small" id="addRef" style="margin-top:8px">+ Ajouter</button>
+  </div>
+  <button class="btn" id="saveCo">Enregistrer l'entreprise</button> <span class="muted" id="coMsg"></span>
+</section>
+
+<section id="s4">
+  <div class="card">
+    <h2>Générer le dossier</h2>
+    <p class="sub">Produit le fichier « Éléments du dossier » détaillé et un modèle prérempli pour chaque pièce, rangés par dossier.</p>
+    <div class="grid" style="max-width:520px">
+      <div><label>Date de signature à inscrire sur les documents</label><input type="date" id="dsig"></div>
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="gen">Générer le dossier</button><span class="muted" id="genMsg"></span></div>
+    <div id="chk"></div>
+  </div>
+  <div class="card res" id="result" style="display:none"></div>
+</section>
+</main>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+let AO = null, CO = null, PRE = null, files = [];
+
+const getP = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
+const setP = (o, p, v) => { const ks = p.split('.'); const l = ks.pop(); const t = ks.reduce((a, k) => (a[k] ??= {}), o); t[l] = v; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = n => n == null || n === '' ? '' : new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const empty = () => ({ numero: '', objet: '', lots: 'Lot unique', maitreOuvrage: { nom: '', sigle: '', representant: '', adresse: '', ville: '' }, modePassation: "Appel d'offres ouvert sur offres de prix", reservePME: false, dateOuverture: '', heureOuverture: '', lieuOuverture: '', dateLimiteDocTech: '', heureLimiteDocTech: '', lieuDocTech: '', docTechSeparee: false, portail: 'www.marchespublics.gov.ma', soumissionElectronique: false, cautionProvisoire: null, cautionDefinitifPct: null, retenueGarantiePct: null, estimation: null, estimationType: 'TTC', tauxTVA: 20, validiteOffresJours: null, delaiExecution: '', delaiGarantie: '', penalites: '', exigences: { tableauConformite: true, attestationConstructeur: false, documentationTechnique: true, echantillons: false, visiteLieux: false, groupementPossible: true }, items: [], articles: {}, piecesExtra: [], piecesDesactivees: [], alertes: [] });
+
+function show(id) { $$('section').forEach(s => s.classList.toggle('on', s.id === id)); $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.s === id)); window.scrollTo(0, 0); if (id === 's4') renderCheck(); }
+$('#nav').onclick = e => e.target.dataset.s && show(e.target.dataset.s);
+
+// ---------- upload
+const drop = $('#drop'), fileIn = $('#file');
+drop.onclick = () => fileIn.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); };
+fileIn.onchange = () => addFiles(fileIn.files);
+function addFiles(fl) { for (const f of fl) if (!files.some(x => x.name === f.name && x.size === f.size)) files.push(f); renderFiles(); }
+function renderFiles() {
+  $('#files').innerHTML = files.map((f, i) => `<li>📄 ${esc(f.name)} <span class="muted">(${(f.size / 1048576).toFixed(1)} Mo)</span> <a href="#" data-rm="${i}">retirer</a></li>`).join('');
+  $('#go').disabled = !files.length;
+}
+$('#files').onclick = e => { if (e.target.dataset.rm) { e.preventDefault(); files.splice(+e.target.dataset.rm, 1); renderFiles(); } };
+
+$('#go').onclick = async () => {
+  const fd = new FormData(); files.forEach(f => fd.append('files', f)); fd.append('ai', $('#ai').checked ? '1' : '0');
+  $('#go').disabled = true; $('#bar').style.display = 'block'; $('#report').innerHTML = '';
+  const r = await fetch('/api/analyze', { method: 'POST', body: fd }); const { jobId, error } = await r.json();
+  if (error) { $('#msg').textContent = error; $('#go').disabled = false; return; }
+  for (;;) {
+    const j = await (await fetch('/api/job/' + jobId)).json();
+    $('#msg').textContent = j.message || ''; $('#bar i').style.width = Math.round((j.progress || 0) * 100) + '%';
+    if (j.status === 'done') { renderReport(j.result.report, j.result.aiNote); load(j.result.ao); show('s2'); break; }
+    if (j.status === 'error') { $('#msg').innerHTML = `<span class="hint-bad">${esc(j.error)}</span>`; renderReport(j.report || []); break; }
+    await new Promise(r => setTimeout(r, 700));
+  }
+  $('#go').disabled = false; $('#bar').style.display = 'none';
+};
+$('#manual').onclick = () => { load(empty()); show('s2'); };
+function renderReport(rep, ai) {
+  $('#report').innerHTML = (rep || []).map(r => `<div class="alert ${r.warning || r.error ? 'warn' : 'info'}">${esc(r.name)} — ${r.pages ? r.pages + ' pages, ' : ''}${esc(r.warning || r.error || (r.ocr ? 'lu par OCR' : 'texte lu'))}</div>`).join('') + (ai ? `<div class="alert info">${esc(ai)}</div>` : '');
+}
+
+// ---------- formulaire AO
+function load(ao) { AO = ao; AO.items ||= []; bind(); renderItems(); refresh(); }
+const numeric = new Set(['cautionProvisoire', 'cautionDefinitifPct', 'retenueGarantiePct', 'estimation', 'tauxTVA', 'validiteOffresJours']);
+const required = ['numero', 'objet', 'dateOuverture', 'heureOuverture', 'cautionProvisoire', 'estimation'];
+function bind() {
+  for (const el of $$('[data-p]')) {
+    const v = getP(AO, el.dataset.p);
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+    el.classList.toggle('miss', el.type !== 'checkbox' && (v === '' || v == null) && required.includes(el.dataset.p));
+    el.oninput = el.onchange = () => {
+      const p = el.dataset.p; let val = el.type === 'checkbox' ? el.checked : el.value;
+      if (numeric.has(p)) val = val === '' ? null : Number(val);
+      setP(AO, p, val); el.classList.remove('miss'); refresh();
+    };
+  }
+  $('#alertes').innerHTML = (AO.alertes || []).map(a => `<div class="alert ${a.type}">${esc(a.texte)}</div>`).join('');
+}
+
+const lineTotal = it => (it.quantite != null && it.quantite !== '' && it.prixUnitaire != null && it.prixUnitaire !== '') ? it.quantite * it.prixUnitaire : null;
+function renderItems() {
+  $('#items tbody').innerHTML = AO.items.map((it, i) => `<tr data-i="${i}">
+    <td style="width:46px"><input data-k="n" value="${esc(it.n)}"></td>
+    <td><input data-k="designation" value="${esc(it.designation)}"></td>
+    <td style="width:58px"><input data-k="unite" value="${esc(it.unite || 'U')}"></td>
+    <td style="width:70px"><input data-k="quantite" type="number" value="${it.quantite ?? ''}"></td>
+    <td style="width:110px"><input data-k="prixUnitaire" type="number" step="any" value="${it.prixUnitaire ?? ''}"></td>
+    <td class="num" data-t>${money(lineTotal(it))}</td>
+    <td style="min-width:260px"><textarea data-k="specs" rows="3">${esc((it.specs || []).join('\n'))}</textarea></td>
+    <td><button class="btn ghost small" data-del="${i}">✕</button></td></tr>`).join('');
+}
+$('#items').addEventListener('input', e => {
+  const tr = e.target.closest('tr[data-i]'); if (!tr) return; const it = AO.items[+tr.dataset.i]; const k = e.target.dataset.k;
+  it[k] = k === 'specs' ? e.target.value.split('\n') : ['quantite', 'prixUnitaire'].includes(k) ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value;
+  tr.querySelector('[data-t]').textContent = money(lineTotal(it)); refresh();
+});
+$('#items').addEventListener('click', e => { if (e.target.dataset.del != null) { AO.items.splice(+e.target.dataset.del, 1); renderItems(); refresh(); } });
+$('#addItem').onclick = () => { AO.items.push({ n: AO.items.length + 1, designation: '', unite: 'U', quantite: null, prixUnitaire: null, specs: [] }); renderItems(); };
+
+let timer;
+function refresh() { clearTimeout(timer); timer = setTimeout(preview, 250); }
+async function preview() {
+  if (!AO) return;
+  const r = await fetch('/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ao: AO }) });
+  PRE = await r.json(); renderPieces(); renderCal(); renderLim();
+}
+function renderLim() {
+  const l = PRE.limites, t = PRE.totaux; let h = '';
+  if (l) h += `<div>Plafond « excessive » (+${l.hi}%)<b>${money(l.max)} DH ${l.type}</b></div><div>Plancher « anormalement basse » (−${l.lo}%)<b>${money(l.min)} DH ${l.type}</b></div>`;
+  if (t.complet) {
+    h += `<div>Votre offre<b>${money(t.ht)} HT / ${money(t.ttc)} TTC</b></div>`;
+    if (l) { const v = l.type === 'TTC' ? t.ttc : t.ht; h += `<div>Verdict<b class="${v > l.max || v < l.min ? 'hint-bad' : 'hint-ok'}">${v > l.max ? 'Excessive → écartée' : v < l.min ? 'Anormalement basse → écartée' : 'Dans la fourchette'}</b></div>`; }
+  }
+  $('#limites').innerHTML = h; $('#tot').textContent = t.complet ? `Total : ${money(t.ht)} DH HT — ${money(t.ttc)} DH TTC` : '';
+}
+function renderPieces() {
+  const html = Object.entries(PRE.dossiers).map(([k, label]) => {
+    const list = PRE.pieces.filter(p => p.dossier === k); if (!list.length) return '';
+    return `<details ${k !== 'attributaire' ? 'open' : ''}><summary>${esc(label)} (${list.length})</summary>${list.map(p => `<div class="piece"><input type="checkbox" checked data-off="${esc(p.id)}" title="Décocher pour retirer"><div><div class="t">${esc(p.id)} — ${esc(p.titre)} <span class="tag ${p.mode === 'manuel' ? 'man' : 'gen'}">${p.mode === 'manuel' ? 'à obtenir' : p.mode === 'modele' ? 'modèle à faire remplir' : 'modèle généré'}</span></div><div class="d">${esc(p.forme)} — ${esc(p.quand)}</div></div></div>`).join('')}</details>`;
+  }).join('');
+  const off = (AO.piecesDesactivees || []).map(id => `<span class="tag man">${esc(id)} retirée — <a href="#" data-on="${esc(id)}">rétablir</a></span>`).join(' ');
+  $('#pieces').innerHTML = html + (off ? `<p>${off}</p>` : '');
+}
+$('#pieces').addEventListener('change', e => { if (e.target.dataset.off) { (AO.piecesDesactivees ||= []).push(e.target.dataset.off); refresh(); } });
+$('#pieces').addEventListener('click', e => { if (e.target.dataset.on) { e.preventDefault(); AO.piecesDesactivees = AO.piecesDesactivees.filter(x => x !== e.target.dataset.on); refresh(); } });
+$('#addExtra').onclick = () => { const t = $('#xTitre').value.trim(); if (!t) return; (AO.piecesExtra ||= []).push({ titre: t, dossier: $('#xDossier').value }); $('#xTitre').value = ''; refresh(); };
+function renderCal() {
+  const c = PRE.calendrier;
+  $('#cal').innerHTML = c.length ? `<table><thead><tr><th>Date</th><th>Heure</th><th>Échéance</th><th>Délai</th></tr></thead><tbody>${c.map(x => `<tr class="${x.tone === 'critical' ? 'crit' : x.tone === 'soft' ? 'soft' : ''}"><td>${x.date.split('-').reverse().join('/')}</td><td>${esc(x.heure)}</td><td><b>${esc(x.action)}</b><div class="muted">${esc(x.note)}</div></td><td>${x.jours == null ? '' : x.jours < 0 ? 'passé' : 'J-' + x.jours}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">Saisissez la date d\'ouverture des plis pour obtenir le calendrier.</p>';
+}
+
+// ---------- entreprise
+const COF = [['raisonSociale', 'Raison sociale'], ['formeJuridique', 'Forme juridique (SARL, SA, Personne physique…)'], ['capital', 'Capital (DH)'], ['representant.nom', 'Représentant légal'], ['representant.qualite', 'Qualité (Gérant…)'], ['adresseSiege', 'Adresse du siège', 1], ['adresseDomicile', 'Domicile élu', 1], ['telephone', 'Téléphone'], ['fax', 'Fax'], ['email', 'E-mail'], ['cnss', 'N° CNSS'], ['rcNumero', 'N° RC'], ['rcVille', 'Ville du RC'], ['taxeProfessionnelle', 'N° taxe professionnelle'], ['ice', 'ICE'], ['banque.nom', 'Banque'], ['banque.agence', 'Agence'], ['banque.rib', 'RIB (24 chiffres)', 1], ['villeSignature', 'Ville de signature'], ['activite', 'Activité', 1]];
+const TABLES = [['hum', 'moyensHumains', ['nom', 'fonction', 'formation', 'experience'], '#addHum'], ['refs', 'references', ['client', 'objet', 'annee', 'montant', 'contact'], '#addRef']];
+async function loadCo() {
+  // Profil gardé dans CE navigateur (localStorage) ; à défaut, valeurs du serveur (vides en mode public)
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('dossierAO.company')); } catch {}
+  CO = saved || await (await fetch('/api/company')).json();
+  $('#coGrid').innerHTML = COF.map(([p, l, w]) => `<div class="${w ? 'wide' : ''}"><label>${l}</label><input data-c="${p}" value="${esc(getP(CO, p))}"></div>`).join('');
+  $('#coGrid').oninput = e => { const p = e.target.dataset.c; if (p) setP(CO, p, p === 'capital' ? Number(e.target.value) || 0 : e.target.value); };
+  for (const [id, key, keys] of TABLES) renderRows(id, CO[key], keys);
+  $('#tech').value = (CO.moyensTechniques || []).join('\n');
+}
+function renderRows(id, arr, keys) {
+  $(`#${id} tbody`).innerHTML = arr.map((r, i) => `<tr data-i="${i}">${keys.map(k => `<td><input data-k="${k}" value="${esc(r[k])}"></td>`).join('')}<td><button class="btn ghost small" data-del="${i}">✕</button></td></tr>`).join('');
+}
+for (const [id, key, keys, addBtn] of TABLES) {
+  $(`#${id}`).addEventListener('input', e => { const tr = e.target.closest('tr[data-i]'); if (tr) CO[key][+tr.dataset.i][e.target.dataset.k] = e.target.value; });
+  $(`#${id}`).addEventListener('click', e => { if (e.target.dataset.del != null) { CO[key].splice(+e.target.dataset.del, 1); renderRows(id, CO[key], keys); } });
+  $(addBtn).onclick = () => { CO[key].push(Object.fromEntries(keys.map(k => [k, '']))); renderRows(id, CO[key], keys); };
+}
+$('#saveCo').onclick = async () => {
+  CO.moyensTechniques = $('#tech').value.split('\n').map(s => s.trim()).filter(Boolean);
+  try { localStorage.setItem('dossierAO.company', JSON.stringify(CO)); } catch {}
+  await fetch('/api/company', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(CO) });
+  $('#coMsg').textContent = '✔ Enregistré sur cet ordinateur (navigateur)';
+};
+
+// ---------- génération
+function renderCheck() {
+  if (!AO) { $('#chk').innerHTML = '<div class="alert warn" style="margin-top:12px">Commencez par l\'étape 1 ou 2.</div>'; return; }
+  const m = [];
+  if (!AO.numero) m.push("N° de l'appel d'offres manquant");
+  if (!AO.dateOuverture) m.push("date d'ouverture des plis manquante");
+  if (AO.docTechSeparee && !AO.dateLimiteDocTech) m.push('date limite de la documentation technique manquante');
+  if (AO.cautionProvisoire == null) m.push('montant de la caution provisoire manquant');
+  if (!AO.items.length) m.push('aucune ligne de bordereau');
+  if (AO.items.some(i => i.quantite == null || i.quantite === '')) m.push('quantités manquantes dans le bordereau');
+  $('#chk').innerHTML = m.length
+    ? `<div class="alert warn" style="margin-top:12px"><b>À compléter pour un dossier exact :</b> ${m.join(' ; ')}. Vous pouvez quand même générer : les champs manquants resteront en pointillés.</div>`
+    : '<div class="alert info" style="margin-top:12px">Toutes les données principales sont renseignées.</div>';
+}
+$('#gen').onclick = async () => {
+  if (!AO) return; $('#gen').disabled = true; $('#genMsg').textContent = 'Génération…';
+  const r = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ao: AO, company: CO, dateSignature: $('#dsig').value, saveCompany: true }) });
+  const j = await r.json(); $('#gen').disabled = false;
+  if (j.error) { $('#genMsg').textContent = 'Erreur : ' + j.error; return; }
+  $('#genMsg').textContent = '';
+  const box = $('#result'); box.style.display = 'block';
+  box.innerHTML = `<h2>✔ Dossier généré</h2><p><a class="btn" href="/api/download/${j.id}">⬇ Télécharger tout (ZIP)</a></p>` + j.files.map(f => `<a href="/api/file/${j.id}/${f.i}">${f.path.endsWith('.xlsx') ? '📊' : '📄'} ${esc(f.path)} <span class="muted">(${Math.round(f.size / 1024)} Ko)</span></a>`).join('');
+  box.scrollIntoView({ behavior: 'smooth' });
+};
+
+(async () => {
+  loadCo();
+  const cap = await (await fetch('/api/capabilities')).json();
+  if (cap.ai) $('#aiBox').style.display = 'flex';
+  $('#dsig').value = new Date().toISOString().slice(0, 10);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: dossier-ao
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/capabilities
+    envVars:
+      - key: PUBLIC
+        value: "1"
