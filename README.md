@@ -1,3 +1,13 @@
+---
+title: Dossier AO
+emoji: 📁
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Dossier AO — générateur de réponse aux appels d'offres (Maroc)
 
 Vous déposez le **RC** et le **CPS** (PDF, + l'Avis si vous l'avez) ; l'application remplit un dossier complet :
@@ -31,3 +41,8 @@ Puis ouvrir http://localhost:3000. Les infos de votre entreprise (onglet 3) sont
 
 Mode public (`PUBLIC=1`, déjà positionné) : aucune donnée d'entreprise n'est conservée sur le serveur (profil gardé dans le navigateur de chaque utilisateur), IA désactivée, 15 analyses/heure/IP, fichiers ≤ 30 Mo, résultats supprimés après 30 min.
 Offre gratuite Render : l'application se met en veille après inactivité (1er chargement ~30 s) et l'OCR de gros PDF peut être lent.
+
+## Publier gratuitement sur Hugging Face Spaces (sans carte bancaire)
+1. Compte gratuit sur https://huggingface.co, puis *New → Space* : SDK **Docker**, vide, visibilité **Public**.
+2. `git remote add space https://huggingface.co/spaces/<utilisateur>/<nom-du-space>` puis `git push space main` (mot de passe = jeton d'accès *Write* créé dans Settings → Access Tokens).
+3. L'adresse publique est `https://<utilisateur>-<nom-du-space>.hf.space`.

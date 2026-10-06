@@ -5,6 +5,7 @@ RUN npm ci --omit=dev
 COPY server.js ./
 COPY src ./src
 COPY public ./public
-ENV PUBLIC=1 PORT=3000
-EXPOSE 3000
+# Mode public : aucune donnée d'entreprise sur le serveur ; cache OCR dans /tmp (dossier inscriptible)
+ENV PUBLIC=1 PORT=7860 TESS_CACHE=/tmp/tessdata
+EXPOSE 7860
 CMD ["node", "server.js"]
