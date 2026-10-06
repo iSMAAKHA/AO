@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
 
-const CACHE = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'tessdata');
+const CACHE = process.env.TESS_CACHE || join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'tessdata');
 const SCALE = 2.2; // ~160 dpi : bon compromis précision / vitesse
 
 let deps;
