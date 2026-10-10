@@ -4,6 +4,9 @@ import { elementsDossier } from './elements.js';
 import { declarationHonneur, demandeCaution, etatDesPieces, pagesDeGarde } from './admin.js';
 import { noteMoyens, modeleAttestationReference, demandeAttestationConstructeur, tableauConformiteXlsx } from './technique.js';
 import { acteEngagement, bordereauXlsx } from './financier.js';
+import { guideCandidature } from './guide.js';
+import { documentSpecifique } from './generic.js';
+import { buildPieces } from '../pieces.js';
 import { slug } from '../util.js';
 
 /** Normalise l'objet AO reçu du navigateur (types, valeurs manquantes). */
@@ -35,7 +38,27 @@ export async function buildAll(rawAO, company, opts = {}) {
   const files = [];
   const add = async (path, promise) => files.push({ path, buffer: await promise });
 
+  await add('00_Guide_de_candidature.docx', guideCandidature(ao, company, o));
   await add('00_Elements_du_dossier_AO.docx', elementsDossier(ao, company, o));
+  if (ao.piecesIA?.length) {
+    // Mode IA : un document par pièce réellement exigée par CET appel d'offres
+    const GEN = {
+      declaration_honneur: declarationHonneur, caution_provisoire: demandeCaution, note_moyens: noteMoyens,
+      attestation_reference: modeleAttestationReference, attestation_constructeur: demandeAttestationConstructeur,
+      tableau_conformite: tableauConformiteXlsx, acte_engagement: acteEngagement, bordereau_prix: bordereauXlsx,
+      documentation_technique: pagesDeGarde,
+    };
+    const done = new Set();
+    for (const pc of buildPieces(ao)) {
+      if (!pc.fichier || done.has(pc.fichier)) continue;
+      done.add(pc.fichier);
+      if (pc.type === 'autre_a_rediger') await add(pc.fichier, documentSpecifique(pc, ao, company, o));
+      else if (GEN[pc.type]) await add(pc.fichier, GEN[pc.type](ao, company, o));
+    }
+    if (!done.has('04_Enveloppes_et_pages_de_garde/Pages_de_garde_et_enveloppes.docx')) await add('04_Enveloppes_et_pages_de_garde/Pages_de_garde_et_enveloppes.docx', pagesDeGarde(ao, company, o));
+    await add('04_Enveloppes_et_pages_de_garde/Etats_des_pieces.docx', etatDesPieces(ao, company, o));
+    return files;
+  }
   await add('01_Dossier_administratif/Declaration_sur_l_honneur.docx', declarationHonneur(ao, company, o));
   await add('01_Dossier_administratif/Demande_caution_provisoire.docx', demandeCaution(ao, company, o));
   await add('02_Dossier_technique/Note_moyens_humains_et_techniques.docx', noteMoyens(ao, company, o));

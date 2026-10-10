@@ -13,6 +13,8 @@ export const DEFAULT_COMPANY = {
   cnss: '', rcNumero: '', rcVille: '', taxeProfessionnelle: '', ice: '',
   banque: { nom: '', agence: '', rib: '' },
   villeSignature: '', activite: '',
+  // Capacités (comparées aux conditions de participation de chaque AO)
+  chiffreAffaires: 0, effectif: 0, anneeCreation: 0, certifications: '', agrements: '',
   moyensHumains: [
     { nom: '', fonction: 'Gérant', formation: '', experience: '' },
     { nom: '', fonction: 'Responsable commercial / avant-vente', formation: '', experience: '' },

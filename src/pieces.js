@@ -13,6 +13,7 @@ const art = (ao, key, fallback) => (ao.articles && ao.articles[key]) || fallback
  *           'manuel' (pièce à obtenir / fournir par l'entreprise)
  */
 export function buildPieces(ao) {
+  if (ao.piecesIA?.length) return buildPiecesIA(ao);
   const P = [];
   const rc = `RC art. ${art(ao, 'pieces', '5')}`;
   const caution = ao.cautionProvisoire != null ? `${fmtMoney(ao.cautionProvisoire)} DH` : "montant fixé par l'avis";
@@ -160,4 +161,42 @@ export function tenderLimits(ao) {
   if (ao.estimation == null) return null;
   const hi = ao.seuilExcessifPct ?? 20, lo = ao.seuilBasPct ?? 25;
   return { estimation: ao.estimation, type: ao.estimationType || 'TTC', max: ao.estimation * (1 + hi / 100), min: ao.estimation * (1 - lo / 100), hi, lo };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Mode IA : la liste des pièces est celle que l'IA a lue dans le RC de CET appel d'offres.
+// `type` choisit le générateur ; les pièces sans générateur restent « à obtenir » ou « modèle à faire remplir ».
+const SLUG = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'document';
+
+const GEN_FILES = {
+  declaration_honneur: ['01_Dossier_administratif/Declaration_sur_l_honneur.docx', 'genere'],
+  caution_provisoire: ['01_Dossier_administratif/Demande_caution_provisoire.docx', 'genere'],
+  note_moyens: ['02_Dossier_technique/Note_moyens_humains_et_techniques.docx', 'genere'],
+  attestation_reference: ['02_Dossier_technique/Modele_attestation_de_reference.docx', 'modele'],
+  attestation_constructeur: ['02_Dossier_technique/Demande_attestation_constructeur.docx', 'modele'],
+  tableau_conformite: ['02_Dossier_technique/Tableau_de_conformite.xlsx', 'genere'],
+  documentation_technique: ['04_Enveloppes_et_pages_de_garde/Pages_de_garde_et_enveloppes.docx', 'genere'],
+  acte_engagement: ['03_Offre_financiere/Acte_d_engagement.docx', 'genere'],
+  bordereau_prix: ['03_Offre_financiere/Bordereau_des_prix.xlsx', 'genere'],
+};
+
+/** Chemin du fichier produit pour une pièce IA (null si pièce à obtenir). */
+export function pieceFile(piece) {
+  if (GEN_FILES[piece.type]) return GEN_FILES[piece.type][0];
+  if (piece.type === 'autre_a_rediger') {
+    const dir = piece.dossier === 'financier' ? '03_Offre_financiere' : piece.dossier === 'administratif' ? '01_Dossier_administratif' : '02_Dossier_technique';
+    return `${dir}/${SLUG(piece.titre)}.docx`;
+  }
+  return null;
+}
+
+function buildPiecesIA(ao) {
+  const off = new Set(ao.piecesDesactivees || []);
+  const P = ao.piecesIA.map(x => {
+    const fichier = pieceFile(x);
+    const mode = fichier ? (GEN_FILES[x.type]?.[1] || 'genere') : 'manuel';
+    return { id: x.id, dossier: x.dossier, titre: x.titre, detail: x.detail, forme: x.forme, quand: x.quand, source: x.source || 'RC', fichier, mode, optionnel: x.optionnel, type: x.type, ancrage: x.ancrage, extrait: x.extrait };
+  });
+  (ao.piecesExtra || []).forEach((e, i) => P.push({ id: `X${i + 1}`, dossier: e.dossier || 'technique', titre: e.titre, detail: e.detail || '', forme: e.forme || '', quand: e.quand || 'Dépôt du pli', source: 'Ajout manuel', fichier: null, mode: 'manuel' }));
+  return P.filter(p => !off.has(p.id));
 }

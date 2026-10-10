@@ -20,6 +20,13 @@ Vous déposez le **RC** et le **CPS** (PDF, + l'Avis si vous l'avez) ; l'applica
 | `03_Offre_financiere` | Acte d'engagement (montants en lettres), bordereau des prix (xlsx à formules + feuille de contrôle à ne pas déposer) |
 | `04_Enveloppes_et_pages_de_garde` | Pli extérieur, enveloppes n°1 et n°2, pli documentation technique, états des pièces |
 
+## Lecture intelligente (IA) — propre à chaque appel d'offres
+Avec une clé `ANTHROPIC_API_KEY` (variable d'environnement, ou *Secret* du Space Hugging Face), déposez le **dossier complet** (ZIP du portail, ou PDF/DOCX : Avis, RC, CPS, annexes). L'IA le lit en entier et en déduit :
+- la **liste exacte des pièces** demandées par ce RC (au lieu d'une liste standard) → un document généré par pièce (déclaration sur l'honneur, caution, acte d'engagement, bordereau, attestations, et tout document spécifique rédigé d'après le modèle annexé) ;
+- les **conditions de participation** (chiffre d'affaires, références, effectif, certifications, agréments…), comparées à votre profil (étape 3) ;
+- `00_Guide_de_candidature.docx` : verdict *postuler / sous réserve / à régulariser*, ce qui est prêt, ce qu'il reste à obtenir, dates et pièges de cet AO.
+Sans clé, l'application retombe sur l'extraction par règles et la liste standard. Les documents rédigés par l'IA sont des **brouillons à relire** avant signature.
+
 ## Lancer
 
 ```

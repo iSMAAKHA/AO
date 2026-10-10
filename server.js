@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { extractPdfText } from './src/pdf.js';
 import { ocrPdf, ocrAvailable } from './src/ocr.js';
 import { extractAO } from './src/extract.js';
-import { llmExtract, llmAvailable } from './src/llm.js';
+import { llmAnalyze, llmAvailable, excerptFor } from './src/llm.js';
+import { evaluate } from './src/evaluation.js';
+import { expandUploads } from './src/uploads.js';
 import { loadCompany, saveCompany, PUBLIC_MODE } from './src/company.js';
 import { buildAll, buildZip, normalizeAO } from './src/generators/index.js';
 import { buildPieces, buildCalendar, tenderLimits, DOSSIERS } from './src/pieces.js';
@@ -15,7 +17,7 @@ import { totals } from './src/generators/financier.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (PUBLIC_MODE ? 30 : 80) * 1024 * 1024, files: 4 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (PUBLIC_MODE ? 30 : 80) * 1024 * 1024, files: 10 } });
 const PORT = process.env.PORT || 3000;
 const MIN_CHARS_PER_PAGE = 120; // en dessous, la page est considérée comme scannée (pas de couche texte)
 
@@ -32,7 +34,7 @@ app.put('/api/company', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/capabilities', async (_req, res) => res.json({ ocr: await ocrAvailable(), ai: llmAvailable() && !PUBLIC_MODE, public: PUBLIC_MODE }));
+app.get('/api/capabilities', async (_req, res) => res.json({ ocr: await ocrAvailable(), ai: llmAvailable(), public: PUBLIC_MODE }));
 
 // ---------------------------------------------------------------- Analyse (tâche asynchrone)
 const jobs = new Map();
@@ -50,24 +52,28 @@ function allow(ip) {
   list.push(now); hits.set(ip, list); return true;
 }
 
-async function runAnalysis(id, files, { useAI, useOCR }) {
+async function runAnalysis(id, uploaded, { useAI, useOCR }) {
   try {
+    const files = await expandUploads(uploaded);
     const parts = [];
     const report = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       setJob(id, { message: `Lecture de ${f.originalname}…`, progress: i / files.length });
-      if (!/\.pdf$/i.test(f.originalname)) { report.push({ name: f.originalname, error: 'Format non supporté (PDF attendu)' }); continue; }
+      if (f.text != null) { report.push({ name: f.originalname, chars: f.text.length }); parts.push(`=== DOCUMENT : ${f.originalname} ===\n${f.text}`); continue; }
+      if (!/\.pdf$/i.test(f.originalname)) { report.push({ name: f.originalname, error: 'Format ignoré (PDF, DOCX ou ZIP attendus)' }); continue; }
       let r = await extractPdfText(f.buffer);
       const scanned = r.chars < MIN_CHARS_PER_PAGE * r.pages;
-      if (!scanned) { report.push({ name: f.originalname, pages: r.pages, chars: r.chars }); parts.push(r.text); continue; }
+      if (!scanned) { report.push({ name: f.originalname, pages: r.pages, chars: r.chars }); parts.push(`=== DOCUMENT : ${f.originalname} ===
+${r.text}`); continue; }
       if (!useOCR || !(await ocrAvailable())) {
         report.push({ name: f.originalname, pages: r.pages, chars: r.chars, scanned: true, warning: "PDF scanné (image) sans texte : OCR indisponible. Installez les dépendances OCR (voir README) ou fournissez un PDF avec couche texte." });
         continue;
       }
       const t = await ocrPdf(f.buffer, (done, total) => setJob(id, { message: `OCR de ${f.originalname} : page ${done}/${total}…`, progress: (i + done / total) / files.length }));
       report.push({ name: f.originalname, pages: r.pages, chars: t.length, ocr: true });
-      parts.push(t);
+      parts.push(`=== DOCUMENT : ${f.originalname} ===
+${t}`);
     }
     const text = parts.join('\n');
     if (text.replace(/\s/g, '').length < 200) {
@@ -78,8 +84,14 @@ async function runAnalysis(id, files, { useAI, useOCR }) {
     let ao = extractAO(text);
     let aiNote = null;
     if (useAI) {
-      try { ao = await llmExtract(text, ao); aiNote = 'Extraction complétée par IA.'; } catch (e) { aiNote = `Extraction IA impossible : ${e.message}`; }
+      try {
+        setJob(id, { message: "Lecture de l'appel d'offres par l'IA (1 à 3 min)…", progress: 0.97 });
+        ao = await llmAnalyze(text, ao);
+        for (const pc of ao.piecesIA || []) if (pc.type === 'autre_a_rediger') pc.extrait = excerptFor(text, pc).slice(0, 12000);
+        aiNote = `Dossier lu par l'IA : ${ao.piecesIA?.length || 0} pièces et ${ao.criteres?.length || 0} conditions de participation identifiées.`;
+      } catch (e) { aiNote = `Lecture IA impossible (${e.message}) — extraction par règles utilisée.`; }
     }
+    if (aiNote) ao.alertes.unshift({ type: 'info', texte: aiNote });
     setJob(id, { status: 'done', progress: 1, result: { ao, report, aiNote, chars: text.length } });
   } catch (e) {
     console.error(e);
@@ -97,7 +109,7 @@ app.post('/api/analyze', upload.array('files', 6), (req, res) => {
   // multer décode les noms de fichiers en latin1
   req.files.forEach(f => { f.originalname = Buffer.from(f.originalname, 'latin1').toString('utf8'); });
   active++;
-  runAnalysis(id, req.files, { useAI: req.body.ai === '1' && !PUBLIC_MODE, useOCR: req.body.ocr !== '0' }).finally(() => { active--; });
+  runAnalysis(id, req.files, { useAI: req.body.ai === '1' && llmAvailable(), useOCR: req.body.ocr !== '0' }).finally(() => { active--; });
   res.json({ jobId: id });
 });
 
@@ -110,7 +122,7 @@ app.get('/api/job/:id', (req, res) => {
 // ---------------------------------------------------------------- Aperçu (pièces, calendrier, bornes)
 app.post('/api/preview', (req, res) => {
   const ao = normalizeAO(req.body.ao);
-  res.json({ pieces: buildPieces(ao), dossiers: DOSSIERS, calendrier: buildCalendar(ao), limites: tenderLimits(ao), totaux: totals(ao) });
+  res.json({ pieces: buildPieces(ao), evaluation: evaluate(ao, req.body.company || {}), dossiers: DOSSIERS, calendrier: buildCalendar(ao), limites: tenderLimits(ao), totaux: totals(ao) });
 });
 
 // ---------------------------------------------------------------- Génération

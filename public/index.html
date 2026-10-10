@@ -51,6 +51,7 @@
   .tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:10px;background:#e8eef5;color:var(--accent);white-space:nowrap;font-weight:500}
   .tag.gen{background:var(--okbg);color:var(--ok)}
   .tag.man{background:var(--warnbg);color:var(--warn)}
+  .tag.bad{background:var(--badbg);color:var(--bad)}
   tr.crit td{background:var(--badbg)}
   tr.soft td{color:var(--muted)}
   details{border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin:6px 0;background:#fff}
@@ -84,14 +85,14 @@
 
 <section id="s1" class="on">
   <div class="card">
-    <h2>Déposez le RC et le CPS (PDF)</h2>
-    <p class="sub">Ajoutez aussi l'Avis d'appel d'offres si vous l'avez : il contient la date d'ouverture, la date limite de la documentation technique et l'estimation. Sans l'Avis, vous saisirez ces dates à l'étape suivante.</p>
-    <div class="drop" id="drop"><b>Glissez vos PDF ici ou cliquez pour choisir</b><span class="muted">RC + CPS (un PDF combiné ou deux fichiers) + Avis (facultatif)</span></div>
-    <input type="file" id="file" accept=".pdf,application/pdf" multiple hidden>
+    <h2>Déposez l'appel d'offres complet</h2>
+    <p class="sub">Déposez le dossier tel que vous l'avez téléchargé sur le portail (ZIP, ou PDF/DOCX : Avis, RC, CPS, CCAG, annexes). L'IA le lit en entier, repère les pièces et conditions propres à CET appel d'offres, puis prépare chaque document.</p>
+    <div class="drop" id="drop"><b>Glissez le dossier d'appel d'offres ici ou cliquez pour choisir</b><span class="muted">ZIP du DCE, ou PDF / DOCX (RC, CPS, Avis, annexes)</span></div>
+    <input type="file" id="file" accept=".pdf,.docx,.zip,application/pdf,application/zip" multiple hidden>
     <ul class="files" id="files"></ul>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="go" disabled>Analyser les documents</button>
-      <label class="chk" id="aiBox" style="display:none"><input type="checkbox" id="ai"> Compléter avec l'IA (clé API détectée)</label>
+      <label class="chk" id="aiBox" style="display:none"><input type="checkbox" id="ai" checked> Lire tout le dossier avec l'IA</label>
       <button class="btn ghost" id="manual">Saisir l'appel d'offres à la main</button>
     </div>
     <div class="bar" id="bar" style="display:none"><i></i></div>
@@ -170,6 +171,12 @@
     <p class="sub">Désignations et quantités du CPS. Saisissez vos prix unitaires HT (facultatif : ils alimentent l'acte d'engagement et le bordereau). Les spécifications alimentent le tableau de conformité (une par ligne).</p>
     <table id="items"><thead><tr><th>N°</th><th>Désignation</th><th>Unité</th><th>Qté</th><th>PU HT (DH)</th><th class="num">Total HT</th><th>Spécifications</th><th></th></tr></thead><tbody></tbody></table>
     <div class="row" style="margin-top:10px"><button class="btn ghost small" id="addItem">+ Ajouter une ligne</button><span class="muted" id="tot"></span></div>
+  </div>
+
+  <div class="card" id="faisCard" style="display:none">
+    <h2>Faisabilité — pouvez-vous postuler ?</h2>
+    <p class="sub">Les conditions de participation lues dans le règlement de consultation, comparées à votre entreprise (étape 3).</p>
+    <div id="fais"></div>
   </div>
 
   <div class="card">
@@ -315,8 +322,18 @@ let timer;
 function refresh() { clearTimeout(timer); timer = setTimeout(preview, 250); }
 async function preview() {
   if (!AO) return;
-  const r = await fetch('/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ao: AO }) });
-  PRE = await r.json(); renderPieces(); renderCal(); renderLim();
+  const r = await fetch('/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ao: AO, company: CO }) });
+  PRE = await r.json(); renderPieces(); renderCal(); renderLim(); renderFais();
+}
+const ST = { ok: ['✔ OK', 'gen'], ko: ['✖ Non rempli', 'bad'], verifier: ['? À vérifier', 'man'] };
+function renderFais() {
+  const e = PRE.evaluation, crit = e?.criteres || [];
+  $('#faisCard').style.display = crit.length || (AO.piecesIA || []).length ? 'block' : 'none';
+  if (!e) return;
+  const v = e.verdict, cls = v.niveau === 'go' ? 'info' : 'warn';
+  $('#fais').innerHTML = `<div class="alert ${cls}"><b>${v.niveau === 'go' ? 'Vous pouvez postuler' : v.niveau === 'nogo' ? 'À régulariser avant de postuler' : 'Postuler sous réserve'}</b> — ${esc(v.texte)}</div>`
+    + (crit.length ? `<table><thead><tr><th>Exigence</th><th>Votre situation</th><th>Statut</th></tr></thead><tbody>${crit.map(c => `<tr><td><b>${esc(c.libelle)}</b>${c.eliminatoire ? ' <span class="muted">(éliminatoire)</span>' : ''}<div class="muted">${esc(c.detail || '')} ${esc(c.source || '')}</div></td><td>${esc(c.constat)}</td><td><span class="tag ${ST[c.statut][1]}">${ST[c.statut][0]}</span></td></tr>`).join('')}</tbody></table>` : '')
+    + (e.aObtenir.length ? `<p><b>À obtenir avant le dépôt :</b> ${e.aObtenir.map(p => esc(p.titre)).join(' ; ')}</p>` : '');
 }
 function renderLim() {
   const l = PRE.limites, t = PRE.totaux; let h = '';
@@ -344,7 +361,7 @@ function renderCal() {
 }
 
 // ---------- entreprise
-const COF = [['raisonSociale', 'Raison sociale'], ['formeJuridique', 'Forme juridique (SARL, SA, Personne physique…)'], ['capital', 'Capital (DH)'], ['representant.nom', 'Représentant légal'], ['representant.qualite', 'Qualité (Gérant…)'], ['adresseSiege', 'Adresse du siège', 1], ['adresseDomicile', 'Domicile élu', 1], ['telephone', 'Téléphone'], ['fax', 'Fax'], ['email', 'E-mail'], ['cnss', 'N° CNSS'], ['rcNumero', 'N° RC'], ['rcVille', 'Ville du RC'], ['taxeProfessionnelle', 'N° taxe professionnelle'], ['ice', 'ICE'], ['banque.nom', 'Banque'], ['banque.agence', 'Agence'], ['banque.rib', 'RIB (24 chiffres)', 1], ['villeSignature', 'Ville de signature'], ['activite', 'Activité', 1]];
+const COF = [['raisonSociale', 'Raison sociale'], ['formeJuridique', 'Forme juridique (SARL, SA, Personne physique…)'], ['capital', 'Capital (DH)'], ['representant.nom', 'Représentant légal'], ['representant.qualite', 'Qualité (Gérant…)'], ['adresseSiege', 'Adresse du siège', 1], ['adresseDomicile', 'Domicile élu', 1], ['telephone', 'Téléphone'], ['fax', 'Fax'], ['email', 'E-mail'], ['cnss', 'N° CNSS'], ['rcNumero', 'N° RC'], ['rcVille', 'Ville du RC'], ['taxeProfessionnelle', 'N° taxe professionnelle'], ['ice', 'ICE'], ['banque.nom', 'Banque'], ['banque.agence', 'Agence'], ['banque.rib', 'RIB (24 chiffres)', 1], ['villeSignature', 'Ville de signature'], ['activite', 'Activité', 1], ['chiffreAffaires', "Chiffre d'affaires annuel moyen (DH)"], ['effectif', 'Effectif (personnes)'], ['anneeCreation', 'Année de création'], ['certifications', 'Certifications (ISO 9001, …)', 1], ['agrements', 'Agréments / qualifications / classifications', 1]];
 const TABLES = [['hum', 'moyensHumains', ['nom', 'fonction', 'formation', 'experience'], '#addHum'], ['refs', 'references', ['client', 'objet', 'annee', 'montant', 'contact'], '#addRef']];
 async function loadCo() {
   // Profil gardé dans CE navigateur (localStorage) ; à défaut, valeurs du serveur (vides en mode public)
@@ -352,7 +369,7 @@ async function loadCo() {
   try { saved = JSON.parse(localStorage.getItem('dossierAO.company')); } catch {}
   CO = saved || await (await fetch('/api/company')).json();
   $('#coGrid').innerHTML = COF.map(([p, l, w]) => `<div class="${w ? 'wide' : ''}"><label>${l}</label><input data-c="${p}" value="${esc(getP(CO, p))}"></div>`).join('');
-  $('#coGrid').oninput = e => { const p = e.target.dataset.c; if (p) setP(CO, p, p === 'capital' ? Number(e.target.value) || 0 : e.target.value); };
+  $('#coGrid').oninput = e => { const p = e.target.dataset.c; if (p) setP(CO, p, ['capital', 'chiffreAffaires', 'effectif', 'anneeCreation'].includes(p) ? Number(e.target.value) || 0 : e.target.value); refresh(); };
   for (const [id, key, keys] of TABLES) renderRows(id, CO[key], keys);
   $('#tech').value = (CO.moyensTechniques || []).join('\n');
 }
@@ -399,7 +416,7 @@ $('#gen').onclick = async () => {
 (async () => {
   loadCo();
   const cap = await (await fetch('/api/capabilities')).json();
-  if (cap.ai) $('#aiBox').style.display = 'flex';
+  if (cap.ai) $('#aiBox').style.display = 'flex'; else $('#ai').checked = false;
   $('#dsig').value = new Date().toISOString().slice(0, 10);
 })();
 </script>
